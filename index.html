@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Galaxia 3D para Estefanía</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #000;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    canvas {
+      display: block;
+    }
+    .instructions {
+      position: absolute;
+      bottom: 25px;
+      width: 100%;
+      text-align: center;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 15px;
+      pointer-events: none;
+      letter-spacing: 1.5px;
+      text-shadow: 0 0 12px rgba(255, 100, 200, 0.9);
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+
+<div class="instructions">Arrastra para explorar el espacio 3D • Haz zoom para revelar el mensaje ✨</div>
+
+<!-- Three.js y controles -->
+<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+  // 1. Escena, Cámara y Renderizador Profesional
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x000005, 0.001);
+
+  const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+  camera.position.set(0, 160, 420);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  document.body.appendChild(renderer.domElement);
+
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.04;
+  controls.maxDistance = 850;
+  controls.minDistance = 40;
+
+  // 2. Crear textura circular suave para las estrellas (Adiós pixeles cuadrados)
+  function createParticleTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+
+    const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+    gradient.addColorStop(0.3, 'rgba(200, 220, 255, 0.8)');
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 128, 128);
+
+    return new THREE.CanvasTexture(canvas);
+  }
+
+  // 3. Galaxia 3D en Espiral con Alta Densidad
+  const particleCount = 12000;
+  const geometry = new THREE.BufferGeometry();
+  const positions = new Float32Array(particleCount * 3);
+  const colors = new Float32Array(particleCount * 3);
+
+  const colorInside = new THREE.Color('#ffeef8');
+  const colorOutside = new THREE.Color('#3377ff');
+
+  for (let i = 0; i < particleCount; i++) {
+    const i3 = i * 3;
+    const radius = Math.pow(Math.random(), 1.2) * 350;
+    const spinAngle = radius * 0.014;
+    const branchAngle = ((i % 4) * Math.PI * 2) / 4; // 4 brazos espirales elegantes
+    
+    const randomX = (Math.random() - 0.5) * 45 * (1 - radius / 350);
+    const randomY = (Math.random() - 0.5) * 30 * (1 - radius / 350);
+    const randomZ = (Math.random() - 0.5) * 45 * (1 - radius / 350);
+
+    positions[i3] = Math.cos(branchAngle + spinAngle) * radius + randomX;
+    positions[i3 + 1] = randomY;
+    positions[i3 + 2] = Math.sin(branchAngle + spinAngle) * radius + randomZ;
+
+    const mixedColor = colorInside.clone();
+    mixedColor.lerp(colorOutside, radius / 350);
+    
+    colors[i3] = mixedColor.r;
+    colors[i3 + 1] = mixedColor.g;
+    colors[i3 + 2] = mixedColor.b;
+  }
+
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+  const particleMaterial = new THREE.PointsMaterial({
+    size: 5,
+    sizeAttenuation: true,
+    vertexColors: true,
+    map: createParticleTexture(),
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    opacity: 0.9
+  });
+
+  const galaxyPoints = new THREE.Points(geometry, particleMaterial);
+  scene.add(galaxyPoints);
+
+  // 4. Núcleo brillante central de la galaxia
+  const coreGeo = new THREE.SphereGeometry(14, 32, 32);
+  const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+  scene.add(coreMesh);
+
+  const haloGeo = new THREE.SphereGeometry(50, 32, 32);
+  const haloMat = new THREE.MeshBasicMaterial({
+    color: 0xaa44ff,
+    transparent: true,
+    opacity: 0.2,
+    blending: THREE.AdditiveBlending
+  });
+  const haloMesh = new THREE.Mesh(haloGeo, haloMat);
+  scene.add(haloMesh);
+
+  // 5. Anillos 3D con Alta Definición para el Texto
+  function createTextRing(text, radius) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 4096; // Alta resolución para que no se vea borroso
+    canvas.height = 256;
+    const context = canvas.getContext('2d');
+
+    context.font = 'bold 50px "Segoe UI", sans-serif';
+    context.fillStyle = '#ffb3de';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    
+    const fullText = (text + "   •   •   ").repeat(3);
+    context.fillText(fullText, canvas.width / 2, canvas.height / 2);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+
+    const ringGeo = new THREE.RingGeometry(radius - 6, radius + 6, 128);
+    const ringMat = new THREE.MeshBasicMaterial({
+      map: texture,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+
+    const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+    ringMesh.rotation.x = Math.PI / 2;
+    scene.add(ringMesh);
+    return ringMesh;
+  }
+
+  const messageText = "MI AMOR POR TI ES MAS QUE UNA GALAXIA INFINITA";
+  const rings = [
+    createTextRing(messageText, 140),
+    createTextRing(messageText, 230),
+    createTextRing(messageText, 320)
+  ];
+
+  // Redimensionado fluido
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  // 6. Animación y Control de Zoom
+  const clock = new THREE.Clock();
+
+  function animate() {
+    requestAnimationFrame(animate);
+    const elapsedTime = clock.getElapsedTime();
+
+    // Rotación suave del sistema
+    galaxyPoints.rotation.y = elapsedTime * 0.035;
+    coreMesh.rotation.y = elapsedTime * 0.07;
+    haloMesh.rotation
